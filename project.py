@@ -2,6 +2,4 @@
 
 #### 1. Read file####
 
-def read_file(file)
-    
 

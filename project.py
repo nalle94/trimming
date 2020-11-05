@@ -1,4 +1,6 @@
 ﻿#!/usr/bin/env python3
+import sys
+import re
 
 #### 2. Detect Phred score ####
 infile=open("sequence_example.txt","r")
@@ -20,7 +22,7 @@ def translation(quality_data):
     for char in quality_data:
         data_list.append(char)
     quality_scores = []
-    for char in data_list:
+    for char in range(len(data_list)):
         quality_scores += [quality_table[char]]
     return(quality_scores)
 

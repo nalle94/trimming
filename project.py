@@ -28,6 +28,7 @@ def detect_phred(infile):
     #iterate over file until scale is identified
     while phred_scale == None:
         for line in infile:
+            line = line.strip()
             line_count += 1    
             #identify quality score lines (every 4th)
             if line_count % 4 == 0:
@@ -39,7 +40,7 @@ def detect_phred(infile):
                         phred_scale = "phred+64"
     if phred_scale == None:
         print("Cannot determine phred scale")
-        
+    return phred_scale    
             
 
 

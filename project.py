@@ -26,7 +26,7 @@ def translation(quality_data):
         quality_scores += [quality_table[char]]
     return(quality_scores)
 
-
+quality_data[line]>
 def detect_phred(infile):
     '''detects phred score for sequences in file'''
     quality_data = None
@@ -37,8 +37,9 @@ def detect_phred(infile):
             line_count += 1    
             #identify quality score lines (every 4th)
             if line_count % 4 == 0:
-                #translate the line
-                line = translation(line)
+                for char in line:
+                    #translate the line
+                    if quality_table[char] <  
                 #identify if in phred 33 range
                 print(line) 
 

@@ -2,10 +2,31 @@
 import sys
 import re
 import gzip
+import argparse
+
+####1. read file####
+
+#detect filetype and read file
+
+if filename.endswith("fastq.gz"):
+    try:
+        infile = gzip.open(filename,"rt")
+    except IOError as error:
+        sys.stdout.write("Can't open file, reason: " + str(error) + "\n")
+        sys.exit(1)
+elif filename.endswith("fastq"):
+    try:
+        infile = open(filename, "r")
+
+    
+
 
 #### 2. Detect Phred score ####
-infile=open("sequence_example.txt","r")
+infile=open("sequence_example.txt","rt")
+outfile = gzip.open("sequence_example.txt.gzip","wt")
 
+infile.close()
+outfile.close()
 
 
 phred33 = {
@@ -47,11 +68,6 @@ def detect_phred(infile):
         print("Cannot determine phred scale")
     return phred_scale    
             
-
-
-
-         
-print(detect_phred(infile))
 
 
 

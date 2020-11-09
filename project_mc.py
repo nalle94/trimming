@@ -74,9 +74,11 @@ asci_5 = ''
 asci_3 = ''
 window_size = 5
 
+
+
 seq_qual_5 = list(zip(seq,qual))
 print(seq_qual_5)
-
+"""
 #Trim from 5' based on minimum quality of single nucleotides
 for nuc,asci in seq_qual_5:
 	if phred33[asci]<30 and seq_trimmed_5 == '':
@@ -94,6 +96,53 @@ for nuc,asci in seq_qual_3[::-1]:
 	else:
 		seq_trimmed_3 += nuc
 		asci_3 += asci
+"""
+
+#Trim from 5' based on average of moving window
+i = 0
+while i < len(seq_qual_5) - window_size + 1:
+	sum_window = 0
+	window = seq_qual_5[i:i + window_size]
+	for nuc,asci in window:
+		sum_window += phred33[asci]
+	window_average = sum_window/window_size
+	if window_average < 30 and seq_trimmed_5 == '':
+		i += 1
+		continue
+	else:
+		i += 1
+		seq_trimmed_5 += window[0][0]
+		asci_5 += window[0][1]
+
+#Add remaining 3' nucleotides to trimmed sequence
+for nuc,asci in window[1:]:
+	seq_trimmed_5 += nuc
+	asci_5 += asci
+
+seq_qual_3 = list(zip(seq_trimmed_5,asci_5))
+seq_qual_3 = seq_qual_3[::-1]
+print(len(seq_qual_3))
+
+#Trim from 3' based on average of moving window
+i = 0
+while i < len(seq_qual_3) - window_size + 1:
+	sum_window = 0
+	window = seq_qual_3[i:i + window_size]
+	for nuc,asci in window:
+		sum_window += phred33[asci]
+	window_average = sum_window/window_size
+	if window_average < 30 and seq_trimmed_3 == '':
+		i += 1
+		continue
+	else:
+		i += 1
+		seq_trimmed_3 += window[0][0]
+		asci_3 += window[0][1]
+
+#Add remaining 5' nucleotides to trimmed sequence
+for nuc,asci in window[1:]:
+	seq_trimmed_3 += nuc
+	asci_3 += asci
 
 print(seq)
 print(qual)

@@ -4,23 +4,96 @@ import re
 import gzip
 import argparse
 
+
+
+####argument parser####
+def check_pos(value):
+    '''validate if args is a pos int'''
+    try:
+        int_value = int(value)
+        if int_value < 0:
+            raise argparse.ArgumentError("%s is not a positive int value" % value)
+    except argparse.ArgumentError as error:
+        print("%s is not a positive int value" % value)
+        sys.exit()
+    return int_value
+
+def check_qual_cut(value):
+    '''check if value is pos int or return defaultvalue if yes'''
+    if value == 'yes':
+        value = 0
+    else:
+        try:
+            int_value = int(value)
+            if int_value < 0:
+                raise argparse.ArgumentError("%s is not a positive int value" % value)
+        except argparse.ArgumentError as error:
+            print("%s is not a positive int value" % value)
+            sys.exit()
+    return int_value
+
+parser = argparse.ArgumentParser(description = 'Trimming if fastq file.')
+parser.add_argument('-outfilename', required = True, 
+                    help = 'output filename. If gzip file is wanted, add .gz in end of filename')
+parser.add_argument('-filename', required = True, 
+                    help = 'input fastq filename for trimming')
+parser.add_argument('-phred_scale', choices = ['phred+33', 'phred+64'], 
+                    help = 'phred scale (type: phred+33 or phred+64') 
+parser.add_argument('-fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
+                    help = 'what fixed base length to trim from each end (type: space seperated string of pos int of length 2')
+parser.add_argument('-min_residue3', type = check_qual_cut, default = False, 
+                    help = 'if trim from 3end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
+parser.add_argument('-min_residue5', type = check_qual_cut, default = False, 
+                    help = 'if trim from 5end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
+parser.add_argument('-mean_mw3', type = check_qual_cut, default = False, 
+                    help = 'if trim from 3end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)')   
+parser.add_argument('-mean_mw5', type = check_qual_cut, default = False, 
+                    help = 'if trim from 5end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)') 
+
+args = parser.parse_args()
+
+#raise exception if moving window and single residue trimming methods is used for same ends
+if parser.min_residue3 != False or parser.mean_mw3 != False:
+    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 3end')
+if parser.min_residue5 != False or parser.mean_mw5 != False:
+    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 5end')    
+
+#set default trimming if nothing is specified
+
+
+
 ####1. read file####
 
-#read file if filetype is gzipped fastq
-if filename.endswith("fastq.gz"):
+#read input file if filetype is gzipped fastq 
+if args.filename.endswith('fastq.gz'):
     try:
-        infile = gzip.open(filename,"rt")
+        infile = gzip.open(args.filename,'rt')
     except IOError as error:
-        sys.stdout.write("Can't open file, reason: " + str(error) + "\n")
+        sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 #read file if filetype is fastq
-elif filename.endswith("fastq"):
+elif args.filename.endswith('fastq'):
     try:
-        infile = open(filename, "r")
+        infile = open(args.filename, 'r')
     except IOError as error:
-        sys.stdout.write("Can't open file, reason: " + str(error) + "\n")
+        sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
-    
+else:
+    print('Not a valid filename')
+
+#open output file and check if name if gzip
+if args.outfilename.endswith('gz'):
+    try:
+        outfile = gzip.open(args.outfilename, 'wt')
+    except IOError as error:
+        sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
+else:
+    try:
+        outfile = open(args.outfilename, 'w')
+    except IOError as error:
+        sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
+        sys.exit(1)   
 
 
 #### 2. Detect Phred score ####

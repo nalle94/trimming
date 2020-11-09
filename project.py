@@ -6,18 +6,20 @@ import argparse
 
 ####1. read file####
 
-#detect filetype and read file
-
+#read file if filetype is gzipped fastq
 if filename.endswith("fastq.gz"):
     try:
         infile = gzip.open(filename,"rt")
     except IOError as error:
         sys.stdout.write("Can't open file, reason: " + str(error) + "\n")
         sys.exit(1)
+#read file if filetype is fastq
 elif filename.endswith("fastq"):
     try:
         infile = open(filename, "r")
-
+    except IOError as error:
+        sys.stdout.write("Can't open file, reason: " + str(error) + "\n")
+        sys.exit(1)
     
 
 

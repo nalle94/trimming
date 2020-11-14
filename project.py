@@ -32,22 +32,22 @@ def check_qual_cut(value):
             sys.exit()
     return int_value
 
-parser = argparse.ArgumentParser(description = 'Trimming if fastq file.')
-parser.add_argument('-outfilename', required = True, 
+parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
+parser.add_argument('-o', dest='outfilename', required = True, 
                     help = 'output filename. If gzip file is wanted, add .gz in end of filename')
-parser.add_argument('-filename', required = True, 
+parser.add_argument('-f', dest='filename', required = True, 
                     help = 'input fastq filename for trimming')
-parser.add_argument('-phred_scale', choices = ['phred+33', 'phred+64'], 
-                    help = 'phred scale (type: phred+33 or phred+64') 
-parser.add_argument('-fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
+parser.add_argument('-p', dest='phred_scale', choices = ['phred+33', 'phred+64'], 
+                    help = 'phred scale (type: phred+33 or phred+64)') 
+parser.add_argument('-t', dest='fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
                     help = 'what fixed base length to trim from each end (type: space seperated string of pos int of length 2')
-parser.add_argument('-min_residue3', type = check_qual_cut, default = False, 
+parser.add_argument('-m3', dest='min_residue3', type = check_qual_cut, default = False, 
                     help = 'if trim from 3end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-min_residue5', type = check_qual_cut, default = False, 
+parser.add_argument('-m5', dest='min_residue5', type = check_qual_cut, default = False, 
                     help = 'if trim from 5end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-mean_mw3', type = check_qual_cut, default = False, 
+parser.add_argument('-w3', dest='mean_mw3', type = check_qual_cut, default = False, 
                     help = 'if trim from 3end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)')   
-parser.add_argument('-mean_mw5', type = check_qual_cut, default = False, 
+parser.add_argument('-w5', dest='mean_mw5', type = check_qual_cut, default = False, 
                     help = 'if trim from 5end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)') 
 
 args = parser.parse_args()

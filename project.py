@@ -19,7 +19,7 @@ def check_pos(value):
     return int_value
 
 def check_qual_cut(value):
-    '''check if value is pos int or return defaultvalue if yes'''
+    '''check if value is pos int or return defaultvalue if not'''
     if value == 'yes':
         value = 0
     else:

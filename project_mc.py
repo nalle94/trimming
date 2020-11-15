@@ -31,22 +31,22 @@ def check_qual_cut(value):
             sys.exit()
     return int_value
 
-parser = argparse.ArgumentParser(description = 'Trimming if fastq file.')
-parser.add_argument('-outfilename', required = True, 
+parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
+parser.add_argument('-o', dest='outfilename', required = True, 
                     help = 'output filename. If gzip file is wanted, add .gz in end of filename')
-parser.add_argument('-filename', required = True, 
+parser.add_argument('-f', dest='filename', required = True, 
                     help = 'input fastq filename for trimming')
-parser.add_argument('-phred_scale', choices = ['phred+33', 'phred+64'], 
-                    help = 'phred scale (type: phred+33 or phred+64') 
-parser.add_argument('-fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
+parser.add_argument('-p', dest='phred_scale', choices = ['phred+33', 'phred+64'], 
+                    help = 'phred scale (type: phred+33 or phred+64)') 
+parser.add_argument('-t', dest='fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
                     help = 'what fixed base length to trim from each end (type: space seperated string of pos int of length 2')
-parser.add_argument('-min_residue3', type = check_qual_cut, default = False, 
-                    help = 'if trim from 3end should be minimum of single residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-min_residue5', type = check_qual_cut, default = False, 
-                    help = 'if trim from 5end should be minimum of single residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-mean_mw3', type = check_qual_cut, default = False, 
+parser.add_argument('-m3', dest='min_residue3', type = check_qual_cut, default = False, 
+                    help = 'if trim from 3end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
+parser.add_argument('-m5', dest='min_residue5', type = check_qual_cut, default = False, 
+                    help = 'if trim from 5end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
+parser.add_argument('-w3', dest='mean_mw3', type = check_qual_cut, default = False, 
                     help = 'if trim from 3end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)')   
-parser.add_argument('-mean_mw5', type = check_qual_cut, default = False, 
+parser.add_argument('-w5', dest='mean_mw5', type = check_qual_cut, default = False, 
                     help = 'if trim from 5end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)') 
 
 args = parser.parse_args()
@@ -304,14 +304,43 @@ def trim_moving_window_3(seq_qual, threshold):
 		seq_trimmed_3 += nuc
 		asci_trimmed_3 += asci
 
-	seq_qual = seq_trimmed_3[::-1], asci_trimmed_3[::-1]
+	seq_qual = list(zip(seq_trimmed_3[::-1], asci_trimmed_3[::-1]))
 	return seq_qual
 
+
+def calc_mean_qual(seq_qual):
+	'''Calculate mean quality of read'''
+	sum_qual_read = 0
+	if phred_scale == 'phred+33':
+		for nuc, asci in seq_qual:
+			sum_qual_read += phred33[asci]
+		average_read_qual = sum_qual_read/len(seq_qual)
+	elif phred_scale == 'phred+64':
+		for nuc,asci in seq_qual:
+			sum_qual_read += phred64[asci]
+		average_read_qual = sum_qual_read/len(seq_qual)
+	else:
+		raise ValueError('Phred scale not correctly identified', phred_scale)
+		sys.exit(1)
+
+	return int(average_read_qual)
+
+
+def count_unknown_nuc(seq_qual):
+	'''Count number of unknown nucleotides in read'''
+	count_n = 0
+	for nuc, asci in seq_qual:
+		if nuc == 'N':
+			count_n += 1
+	return count_n
+	
 
 #MAIN PROGRAM
 
 #Initialize
 read_count = 0
+trim_count = 0
+removed_count = 0
 line_count = 0
 seq = ''
 qual = ''
@@ -334,27 +363,59 @@ for line in infile:
 	if seq != '' and qual != '':
 		seq_qual = list(zip(seq, qual))
 		#Trim fixed number of nucleotides from 5' end
-		seq_qual_trimmed_fixed = trim_fixed(seq_qual, args.fixed_trim[0], args.fixed_trim[0])
+		seq_qual_trim = trim_fixed(seq_qual, args.fixed_trim[0], args.fixed_trim[0])
 		#Trim based on quality of nucleotides from 5' end
-		if args.min_residue5 is not False:
-			seq_qual_trim5 = trim_single_nuc_5(seq_qual_trimmed_fixed, args.min_residue5)
-		else:
-			seq_qual_trim5 = trim_moving_window_5(seq_qual_trimmed_fixed, args.mean_mw5)
+		if args.min_residue5:
+			seq_qual_trim = trim_single_nuc_5(seq_qual_trim, args.min_residue5)
+		elif args.mean_mw5:
+			seq_qual_trim = trim_moving_window_5(seq_qual_trim, args.mean_mw5)
 		#Trim based on quality of nucleotides from 3' end
-		if args.min_residue3 is not False:
-			seq_qual_trim3 = trim_single_nuc_3(seq_qual_trim5, args.min_residue3)
-		else:
-			seq_qual_trim3 = trim_moving_window_3(seq_qual_trim5, args.mean_mw3)
+		if args.min_residue3:
+			seq_qual_trim = trim_single_nuc_3(seq_qual_trim, args.min_residue3)
+		elif args.mean_mw3:
+			seq_qual_trim = trim_moving_window_3(seq_qual_trim, args.mean_mw3)
+
+		#Increase read count by 1
+		read_count += 1
+
+		#Count number of trimmed reads
+		if len(seq_qual_trim) < len(seq_qual):
+			trim_count += 1
+
+		#Filter reads based on mean quality of read after trimming
+		read_mean_qual = calc_mean_qual(seq_qual_trim)
+		if read_mean_qual < 30:
+			removed_count += 1
+			seq = ''
+			qual = ''
+			continue
+
+		#Filter reads based on length of read after trimming
+		if len(seq_qual_trim) < 50:
+			removed_count += 1
+			seq = ''
+			qual = ''
+			continue
+
+		#Filter reads based on number of unknown nucleotides after trimming
+		count_n = count_unknown_nuc(seq_qual_trim)
+		if count_n > 5:
+			removed_count += 1
+			seq = ''
+			qual = ''
+			continue
 
 		#Print read to outfile
+		seq_qual_sep = list(zip(*seq_qual_trim))
 		print(header, file = outfile)
-		print(seq_qual_trim3[0], file = outfile)
+		print(''.join(seq_qual_sep[0]), file = outfile)
 		print('+', file = outfile)
-		print(seq_qual_trim3[1], file = outfile)
+		print(''.join(seq_qual_sep[1]), file = outfile)
 
-		#Increase read count by 1 and reset seq and qual for next read
-		read_count += 1
+		#Reset seq and qual for next read
 		seq = ''
 		qual = ''
 
 print('Number of reads in', args.filename, ':', read_count)
+print('Number of trimmed reads in', args.filename, ':', trim_count)
+print('Number of removed reads in', args.filename, ':', removed_count)

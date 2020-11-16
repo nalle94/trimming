@@ -30,34 +30,44 @@ def check_quality_cut(value):
             print("%s is not a positive int value" % value)
             sys.exit()
     return int_value
-
 parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
-parser.add_argument('-o', dest='outfilename', required = True, 
-                    help = 'output filename. If gzip file is wanted, add .gz in end of filename')
-parser.add_argument('-f', dest='filename', required = True, 
+parser.add_argument('-f', dest = 'filename', required = True, 
                     help = 'input fastq filename for trimming')
-parser.add_argument('-p', dest='phred_scale', choices = ['phred+33', 'phred+64'], 
+parser.add_argument('-o', dest = 'outfilename', required = True, 
+                    help = 'output filename. If gzip file is wanted, add .gz in end of filename')
+parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64'], default = None,
                     help = 'phred scale (type: phred+33 or phred+64)') 
-parser.add_argument('-t', dest='fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
-                    help = 'what fixed base length to trim from each end (type: space seperated string of pos int of length 2')
-parser.add_argument('-m3', dest='min_residue3', type = check_quality_cut, default = False, 
-                    help = 'if trim from 3end should be minimum of sigle residue and what qualityity should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-m5', dest='min_residue5', type = check_quality_cut, default = False, 
-                    help = 'if trim from 5end should be minimum of sigle residue and what qualityity should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-w3', dest='mean_mw3', type = check_quality_cut, default = False, 
-                    help = 'if trim from 3end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)')   
-parser.add_argument('-w5', dest='mean_mw5', type = check_quality_cut, default = False, 
-                    help = 'if trim from 5end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)') 
+                    
+#add grouped argument for trimming settings
+trim = parser.add_argument_group('Trimming', description = 'Settings for trimming. Besides fixed_trim, only one trimming option can be performed from each end. If no options are entered, no trimming will be performed')
+trim.add_argument('-t', dest = 'fixed_trim_val', nargs = 2, default = [0,0], type = check_pos, 
+                    help = 'what fixed base length to trim from eachs end (type: space seperated string of pos int of length 2')
+#add mutually exclusive argument for 3' end trimming
+trim3 = trim.add_mutually_exclusive_group()
+trim3.add_argument('-m3', dest = 'min_residue3', type = check_pos, default = False, 
+                    help = 'minimum of single residue trimming from 3end (type: pos int, default: False)') 
+trim3.add_argument('-a3', dest = 'mean_mw3', type = check_pos, default = False, 
+                    help = 'mean of moving window trimming from 3end (type: pos int, default: False)')   
+trim3.add_argument('-w3', dest = 'min_mw3', type = check_pos, default = False,
+                    help = 'minimum of moving window trimming from 3end (type: pos int, default: False)')
+#add mutually exclusive argument for 5' end trimming
+trim5 = trim.add_mutually_exclusive_group()
+trim5.add_argument('-m5', dest = 'min_residue5', type = check_pos, default = False, 
+                    help = 'minimum of single residue trimming from 5end (type: pos int, default: False)') 
+trim5.add_argument('-a5', dest = 'mean_mw5', type = check_pos, default = False, 
+                    help = 'mean of moving window trimming from 5end (type: pos int, default: False)') 
+trim3.add_argument('-w5', dest = 'min_mw5', type = check_pos, default = False,
+                    help = 'minimum of moving window trimming from 5end (type: pos int, default: False)')
 
+#add grouped argument for filtering settings
+filtering = parser.add_argument_group('Filtering', description = 'Settings for filtering (default: min_mean_qual = 30, min_read_len = 50, max_N = 5)')
+filtering.add_argument('-q', dest = 'min_mean_qual', type = check_pos, default = 30,
+                    help = 'minimum mean quality after trimming (default = 30)')
+filtering.add_argument('-r', dest = 'min_read_qual', type = check_pos, default = 50,
+                    help = 'minimum read length after trimming (default = 50)')
+filtering.add_argument('-s', dest = 'max_N', type = check_pos, default = 5,
+                    help = 'maximum unknown N after trimming (default = 5)')
 args = parser.parse_args()
-
-#raise exception if moving window and single residue trimming methods is used for same ends
-if args.min_residue3 != False and args.mean_mw3 != False:
-    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 3end')
-if args.min_residue5 != False and args.mean_mw5 != False:
-    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 5end')    
-
-#set default trimming if nothing is specified
 
 
 
@@ -429,6 +439,7 @@ count_g_total = list()
 count_t_total = list()
 seq = ''
 quality = ''
+filtered_reads = list()
 
 #if no phred scale is given, detect it automaticly
 if args.phred_scale == None:
@@ -478,27 +489,18 @@ for line in infile:
 
 		#Filter reads based on mean qualityity of read after trimming
 		read_mean_quality = calc_mean_quality(seq_quality_trim)
-		if read_mean_quality < 30:
+		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_qual or (nuc.count('N') for nuc, asci in seq_quality_trim) > max_N :
 			removed_count += 1
 			seq = ''
 			quality = ''
 			continue
-
-		#Filter reads based on length of read after trimming
-		if len(seq_quality_trim) < 50:
-			removed_count += 1
-			seq = ''
-			quality = ''
-			continue
-
-		#Filter reads based on number of unknown and other nucleotides after trimming
+    
+        #Filter reads based on number of unknown nucleotides after trimming
 		for nuc, asci in seq_quality_trim:
 			count_n += nuc.count('N')
-			#count_n_total.append(nuc.count('N'))
-			#count_a_total.append(nuc.count('A'))
-			#count_c_total.append(nuc.count('C'))
-			#count_g_total.append(nuc.count('G'))
-			#count_t_total.append(nuc.count('T'))
+
+        
+
 		if count_n > 5:
 			removed_count += 1
 			seq = ''

@@ -25,7 +25,7 @@ parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64
                     
 #add grouped argument for trimming settings
 trim = parser.add_argument_group('Trimming', description = 'Settings for trimming. Besides fixed_trim, only one trimming option can be performed from each end. If no options are entered, no trimming will be performed')
-trim.add_argument('-t', dest = 'fixed_trim', nargs = 2, default = [0,0], type = check_pos, 
+trim.add_argument('-t', dest = 'fixed_trim_val', nargs = 2, default = [0,0], type = check_pos, 
                     help = 'what fixed base length to trim from eachs end (type: space seperated string of pos int of length 2')
 #add mutually exclusive argument for 3' end trimming
 trim3 = trim.add_mutually_exclusive_group()
@@ -53,6 +53,7 @@ filtering.add_argument('-r', dest = 'min_read_qual', type = check_pos, default =
 filtering.add_argument('-s', dest = 'max_N', type = check_pos, default = 5,
                     help = 'maximum unknown N after trimming (default = 5)')
 
+#save arguments in 
 args = parser.parse_args()
 
 
@@ -115,9 +116,6 @@ phred64 = {
 
 def detect_phred(infile):
     '''detects phred score for sequences in file'''
-    #Set start
-    phred_scale = None 
-    quality_data = None
     line_count = 0
     #iterate over file until scale is identified
     while phred_scale == None:

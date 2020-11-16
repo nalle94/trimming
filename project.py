@@ -18,48 +18,46 @@ def check_pos(value):
         sys.exit()
     return int_value
 
-def check_qual_cut(value):
-    '''check if value is pos int or return defaultvalue if not'''
-    if value == 'yes':
-        value = 0
-    else:
-        try:
-            int_value = int(value)
-            if int_value < 0:
-                raise argparse.ArgumentError("%s is not a positive int value" % value)
-        except argparse.ArgumentError as error:
-            print("%s is not a positive int value" % value)
-            sys.exit()
-    return int_value
 
 parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
-parser.add_argument('-o', dest='outfilename', required = True, 
-                    help = 'output filename. If gzip file is wanted, add .gz in end of filename')
-parser.add_argument('-f', dest='filename', required = True, 
+parser.add_argument('-f', dest = 'filename', required = True, 
                     help = 'input fastq filename for trimming')
-parser.add_argument('-p', dest='phred_scale', choices = ['phred+33', 'phred+64'], 
+parser.add_argument('-o', dest = 'outfilename', required = True, 
+                    help = 'output filename. If gzip file is wanted, add .gz in end of filename')
+parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64'], 
                     help = 'phred scale (type: phred+33 or phred+64)') 
-parser.add_argument('-t', dest='fixed_trim', nargs = 2, default=[0,0], type = check_pos, 
-                    help = 'what fixed base length to trim from each end (type: space seperated string of pos int of length 2')
-parser.add_argument('-m3', dest='min_residue3', type = check_qual_cut, default = False, 
-                    help = 'if trim from 3end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-m5', dest='min_residue5', type = check_qual_cut, default = False, 
-                    help = 'if trim from 5end should be minimum of sigle residue and what quality should be cutoff value (type: pos int / yes, default cutoff = 40)') 
-parser.add_argument('-w3', dest='mean_mw3', type = check_qual_cut, default = False, 
-                    help = 'if trim from 3end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)')   
-parser.add_argument('-w5', dest='mean_mw5', type = check_qual_cut, default = False, 
-                    help = 'if trim from 5end should be mean of moving window and what cutoff mean should be (type: pos int / yes, default: 40)') 
+                    
+#add grouped argument for trimming settings
+trim = parser.add_argument_group('Trimming', description = 'Settings for trimming. Besides fixed_trim, only one trimming option can be performed from each end. If no options are entered, no trimming will be performed')
+trim.add_argument('-t', dest = 'fixed_trim', nargs = 2, default = [0,0], type = check_pos, 
+                    help = 'what fixed base length to trim from eachs end (type: space seperated string of pos int of length 2')
+#add mutually exclusive argument for 3' end trimming
+trim3 = trim.add_mutually_exclusive_group()
+trim3.add_argument('-m3', dest = 'min_residue3', type = check_pos, default = False, 
+                    help = 'minimum of single residue trimming from 3end (type: pos int, default: False)') 
+trim3.add_argument('-a3', dest = 'mean_mw3', type = check_pos, default = False, 
+                    help = 'mean of moving window trimming from 3end (type: pos int, default: False)')   
+trim3.add_argument('-w3', dest = 'min_mw3', type = check_pos, default = False,
+                    help = 'minimum of moving window trimming from 3end (type: pos int, default: False)')
+#add mutually exclusive argument for 5' end trimming
+trim5 = trim.add_mutually_exclusive_group()
+trim5.add_argument('-m5', dest = 'min_residue5', type = check_pos, default = False, 
+                    help = 'minimum of single residue trimming from 5end (type: pos int, default: False)') 
+trim5.add_argument('-a5', dest = 'mean_mw5', type = check_pos, default = False, 
+                    help = 'mean of moving window trimming from 5end (type: pos int, default: False)') 
+trim3.add_argument('-w5', dest = 'min_mw5', type = check_pos, default = False,
+                    help = 'minimum of moving window trimming from 5end (type: pos int, default: False)')
+
+#add grouped argument for filtering settings
+filtering = parser.add_argument_group('Filtering', description = 'Settings for filtering (default: min_mean_qual = 30, min_read_len = 50, max_N = 5)')
+filtering.add_argument('-q', dest = 'min_mean_qual', type = check_pos, default = 30,
+                    help = 'minimum mean quality after trimming (default = 30)')
+filtering.add_argument('-r', dest = 'min_read_qual', type = check_pos, default = 50,
+                    help = 'minimum read length after trimming (default = 50)')
+filtering.add_argument('-s', dest = 'max_N', type = check_pos, default = 5,
+                    help = 'maximum unknown N after trimming (default = 5)')
 
 args = parser.parse_args()
-
-#raise exception if moving window and single residue trimming methods is used for same ends
-if parser.min_residue3 != False or parser.mean_mw3 != False:
-    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 3end')
-if parser.min_residue5 != False or parser.mean_mw5 != False:
-    raise argparse.ArgumentError('Cannot trim with both moving window and single residue from 5end')    
-
-#set default trimming if nothing is specified
-
 
 
 ####1. read file####
@@ -116,7 +114,6 @@ phred64 = {
 	'T': 20, 'U': 21, 'V': 22, 'W': 23, 'X': 24, 'Y': 35, 'Z': 26, '[': 27, '\\': 28, ']': 29,
 	'^': 30, '_': 31, '`': 32, 'a': 33, 'b': 34, 'c': 35, 'd': 36, 'e': 37, 'f': 38, 'g': 39, 
 	'h': 40, 'i': 41}
-
 
 
 def detect_phred(infile):

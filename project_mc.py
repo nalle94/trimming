@@ -156,7 +156,6 @@ def detect_phred(infile):
     return phred_scale    
                   
 
-def fixed_trim(seq_quality, fixed_trim_val5, nuc_to_trim_3):
 	'''Trim fixed number of nucleotides from 5' and 3' ends'''
 	count = 0
 	seq_trimmed_3 = ''

@@ -92,6 +92,7 @@ else:
 #open log file
 logfile = open('log.txt', 'w')
 
+
 #### 2. Detect Phred score ####
 infile=open("sequence_example.txt","rt")
 outfile = gzip.open("sequence_example.txt.gzip","wt")
@@ -137,7 +138,8 @@ def detect_phred(infile):
     return phred_scale    
             
 
-
-
 ####close files####
+infile.close()
+outfile.close()
+logfile.close()
 

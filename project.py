@@ -20,6 +20,7 @@ parser.add_argument('-f', dest = 'filename', required = True,
                     help = 'input fastq filename for trimming')
 parser.add_argument('-o', dest = 'outfilename', required = True, 
                     help = 'output filename. If gzip file is wanted, add .gz in end of filename')
+parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64'], default = None,
                     help = 'phred scale (type: phred+33 or phred+64)') 
                     
 #add grouped argument for trimming settings

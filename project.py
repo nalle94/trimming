@@ -1,9 +1,5 @@
 ﻿#!/usr/bin/env python3
-import sys
-import re
-import gzip
-import argparse
-
+import sys, re, gzip, argparse
 
 
 ####argument parser####

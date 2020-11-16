@@ -468,7 +468,6 @@ for line in infile:
 			count_g_total.append(nuc.count('G'))
 			count_t_total.append(nuc.count('T'))
 		#Trim fixed number of nucleotides from 5' end
-		seq_quality_trim = trim_fixed(seq_quality, args.fixed_trim[0], args.fixed_trim[0])
 		#Trim based on qualityity of nucleotides from 5' end
 		if args.min_residue5:
 			seq_quality_trim = trim_single_nuc_5(seq_quality_trim, args.min_residue5)
@@ -489,7 +488,6 @@ for line in infile:
 
 		#Filter reads based on mean qualityity of read after trimming
 		read_mean_quality = calc_mean_quality(seq_quality_trim)
-		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_qual or (nuc.count('N') for nuc, asci in seq_quality_trim) > max_N :
 			removed_count += 1
 			seq = ''
 			quality = ''
@@ -498,10 +496,6 @@ for line in infile:
         #Filter reads based on number of unknown nucleotides after trimming
 		for nuc, asci in seq_quality_trim:
 			count_n += nuc.count('N')
-
-        
-
-		if count_n > 5:
 			removed_count += 1
 			seq = ''
 			quality = ''

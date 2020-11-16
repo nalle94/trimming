@@ -89,13 +89,13 @@ else:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
         sys.exit(1)   
 
+#open log file
+logfile = open('log.txt', 'w')
 
 #### 2. Detect Phred score ####
 infile=open("sequence_example.txt","rt")
 outfile = gzip.open("sequence_example.txt.gzip","wt")
 
-infile.close()
-outfile.close()
 
 
 phred33 = {
@@ -139,5 +139,5 @@ def detect_phred(infile):
 
 
 
-
+####close files####
 

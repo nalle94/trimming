@@ -112,7 +112,7 @@ else:
         sys.exit(1)   
 
 #read logfile input if given
-if args.logfile.endswith('.txt', 'w')
+if args.logfile.endswith('.txt', 'w'):
     try:
         logfile = open(args.logfile, 'r')
     except IOError as error:
@@ -486,10 +486,11 @@ for line in infile:
 			trim_count += 1
 
 		#Filter reads based on users input
-		read_mean_quality = calc_mean_quality(seq_quality_trim)     #calculate mean quality after trimming    
-        for nuc, asci in seq_quality_trim:      #count N after trimming
-			count_n_trim.append(nuc.count('N'))
-		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_len or if count_n_trim > 5:
+		read_mean_quality = calc_mean_quality(seq_quality_trim)     #calculate mean quality after trimming 
+        for nuc, asci in seq_quality_trim:
+            count_n_trim.append(nuc.count('N'))
+
+		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_len or count_n_trim > 5:
 			removed_count += 1
             #reset and break from loop with no saving of read to outfile
 			seq = ''

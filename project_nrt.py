@@ -512,9 +512,9 @@ for line in infile:
 
 ####saving to log file
 #calculate GC content
+GC = sum(count_g, count_c) / sum(count_a, count_t, count_g, count_c, count_n)
 
-
-print('\nTotal nucleotide  counts\nA: ', count_a, '\nT: ', count_t, '\nG: ', count_g, '\nC: ', count_c, file = logfile)
+print('\nTotal nucleotide  counts\nA: ', count_a, '\nT: ', count_t, '\nG: ', count_g, '\nC: ', count_c, '\nGC content: ', GC, file = logfile)
 
 
 

@@ -1,0 +1,3 @@
+Original file:  sequence_example.fastq 
+ Trimmed file:  outfile.fastq 
+

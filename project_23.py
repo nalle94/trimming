@@ -77,14 +77,14 @@ args = parser.parse_args()
 #read input file if filetype is gzipped fastq 
 if re.search(r'(\.fastq\.gz)\Z', args.filename):
 	try:
-		infile = gzip.open(args.filename,'rt')
+		infile = gzip.open(args.filename,'rt', encoding='utf-8')
 	except IOError as error:
 		sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
 		sys.exit(1)
 #read file if filetype is fastq
 if re.search(r'(\.fastq)\Z', args.filename):
 	try:
-		infile = open(args.filename, 'r')
+		infile = open(args.filename, 'rt', encoding='utf-8')
 	except IOError as error:
 		sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
 		sys.exit(1)
@@ -94,13 +94,13 @@ else:
 #open output file and check if name if gzip
 if re.search(r'(\.fastq\.gz)\Z', args.outfilename):
 	try:
-		outfile = gzip.open(args.outfilename, 'wt')
+		outfile = gzip.open(args.outfilename, 'wt', encoding='utf-8')
 	except IOError as error:
 		sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
 		sys.exit(1)
 if re.search(r'(\.fastq)\Z', args.outfilename):
 	try:
-		outfile = open(args.filename, 'w')
+		outfile = open(args.filename, 'w', encoding='utf-8')
 	except IOError as error:
 		sys.stdout.write('Cannot open outputfile, reason: ' + str(error) + '\n')
 		sys.exit(1)
@@ -110,7 +110,7 @@ else:
 #read logfile input if given
 if re.search(r'(\.txt)\Z', args.logfile):
 	try:
-		logfile = open(args.logfile, 'w')
+		logfile = open(args.logfile, 'w', encoding='utf-8')
 	except IOError as error:
 		sys.stdout.write('Cannot open logfile, reason: ', + str(error) + '\n')
 		sys.exit()
@@ -535,15 +535,12 @@ print('Number of trimmed read: ', trim_count, file = logfile)
 print('Number of removed reads: ', removed_count, file = logfile)
 
 #calculate GC content
-GC = sum(count_g, count_c) / sum(count_a, count_t, count_g, count_c, count_n)
+GC = float(count_g) + float(count_c) / float(count_a) + float(count_t) + float(count_g) + float(count_c) + float(count_n)
 #save nucleotide counts to logfile
 print('\nTotal nucleotide  counts\nA: ', count_a, '\nT: ', count_t, '\nG: ', count_g, '\nC: ', count_c, '\nGC content: ', GC, file = logfile)
 
 
 print('Reads with quality data length and read length not matching: ', error_seq, file = logfile)
-
-
-
 
 
 ####close files####

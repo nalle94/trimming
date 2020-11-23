@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, argparse, gzip, re
+import sys, argparse, gzip
 
 ####argument parser####
 def check_pos(value):
@@ -75,40 +75,39 @@ args = parser.parse_args()
 ####1. read file####
 
 #read input file if filetype is gzipped fastq 
-if re.search(r'(\.fastq\.gz)\Z', args.filename):
-	try:
-		infile = gzip.open(args.filename,'rt', encoding='utf-8')
-	except IOError as error:
-		sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
-		sys.exit(1)
+if args.filename.endswith('fastq.gz'):
+    try:
+        infile = gzip.open(args.filename,'rt')
+    except IOError as error:
+        sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
 #read file if filetype is fastq
-if re.search(r'(\.fastq)\Z', args.filename):
-	try:
-		infile = open(args.filename, 'rt', encoding='utf-8')
-	except IOError as error:
-		sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
-		sys.exit(1)
+elif args.filename.endswith('fastq'):
+    try:
+        infile = open(args.filename, 'r')
+    except IOError as error:
+        sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
 else:
-	print('Not a valid filename')
+    print('Not a valid filename')
 
 #open output file and check if name if gzip
-if re.search(r'(\.fastq\.gz)\Z', args.outfilename):
-	try:
-		outfile = gzip.open(args.outfilename, 'wt', encoding='utf-8')
-	except IOError as error:
-		sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
-		sys.exit(1)
-if re.search(r'(\.fastq)\Z', args.outfilename):
-	try:
-		outfile = open(args.filename, 'w', encoding='utf-8')
-	except IOError as error:
-		sys.stdout.write('Cannot open outputfile, reason: ' + str(error) + '\n')
-		sys.exit(1)
+if args.outfilename.endswith('gz'):
+    try:
+        outfile = gzip.open(args.outfilename, 'wt')
+    except IOError as error:
+        sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
 else:
-	print('Not a valid outputfilename')
+    try:
+        outfile = open(args.outfilename, 'w')
+    except IOError as error:
+        sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
+        sys.exit(1)   
+
 
 #read logfile input if given
-if re.search(r'(\.txt)\Z', args.logfile):
+if args.logfile.endswith('txt'):
 	try:
 		logfile = open(args.logfile, 'w', encoding='utf-8')
 	except IOError as error:

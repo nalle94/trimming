@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
-import sys
-import re
-import argparse
-
+import sys, re, argparse
 
 ####argument parser####
 def check_pos(value):
@@ -30,6 +27,8 @@ def check_quality_cut(value):
             print("%s is not a positive int value" % value)
             sys.exit()
     return int_value
+    
+#read argument line    
 parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
 parser.add_argument('-f', dest = 'filename', required = True, 
                     help = 'input fastq filename for trimming')
@@ -37,6 +36,8 @@ parser.add_argument('-o', dest = 'outfilename', required = True,
                     help = 'output filename. If gzip file is wanted, add .gz in end of filename')
 parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64'], default = None,
                     help = 'phred scale (type: phred+33 or phred+64)') 
+parser.add_argument('-l', dest = 'logfile', default = 'logfile.txt',
+                    help = 'log filename. Need to be a txt file (default: logfile.txt)')
                     
 #add grouped argument for trimming settings
 trim = parser.add_argument_group('Trimming', description = 'Settings for trimming. Besides fixed_trim, only one trimming option can be performed from each end. If no options are entered, no trimming will be performed')
@@ -74,14 +75,14 @@ args = parser.parse_args()
 ####1. read file####
 
 #read input file if filetype is gzipped fastq 
-if args.filename.endswith('fastq.gz'):
+if args.filename.endswith('.fastq.gz'):
     try:
         infile = gzip.open(args.filename,'rt')
     except IOError as error:
         sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 #read file if filetype is fastq
-elif args.filename.endswith('fastq'):
+elif args.filename.endswith('.fastq'):
     try:
         infile = open(args.filename, 'r')
     except IOError as error:
@@ -91,7 +92,7 @@ else:
     print('Not a valid filename')
 
 #open output file and check if name if gzip
-if args.outfilename.endswith('gz'):
+if args.outfilename.endswith('.gz'):
     try:
         outfile = gzip.open(args.outfilename, 'wt')
     except IOError as error:
@@ -104,18 +105,19 @@ else:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
         sys.exit(1)   
 
+#read logfile input if given
+if args.logfile.endswith('.txt', 'w')
+    try:
+        logfile = open(args.logfile, 'r')
+    except IOError as error:
+        sys.stdout.write('Cannot open logfile, reason: ', + str(error) + '\n')
+        sys.exit()
+#add text to logfile
+print('
 
-
-
-def usage(message = None):
-	if message is not None:
-		print(message)
-	print('Usage: readtrimmer <infile> <number of nucleotides 3 prime> <qualityity of nucleotides 3 prime> <number of nucleotides 5 prime> <qualityity of nucleotides 5 prime>')
-	sys.exit(1)
 
 
 #### 2. Detect Phred score ####
-
 phred33 = {
 	'!': 0, '"': 1, '#': 2, '$': 3, '%': 4, '&': 5, "'": 6, '(': 7, ')': 8, '*': 9, 
 	'+': 10, ',': 11, '-': 12, '.': 13, '/': 14, '0': 15, '1': 16, '2': 17, '3': 18, '4': 19,
@@ -128,8 +130,6 @@ phred64 = {
 	'T': 20, 'U': 21, 'V': 22, 'W': 23, 'X': 24, 'Y': 35, 'Z': 26, '[': 27, '\\': 28, ']': 29,
 	'^': 30, '_': 31, '`': 32, 'a': 33, 'b': 34, 'c': 35, 'd': 36, 'e': 37, 'f': 38, 'g': 39, 
 	'h': 40, 'i': 41}
-
-
 
 def detect_phred(infile):
     '''detects phred score for sequences in file'''
@@ -424,21 +424,16 @@ def calc_mean_quality(seq_quality):
 	return int(average_read_quality)
 	
 
-#MAIN PROGRAM
+####MAIN PROGRAM####
 
 #Initialize
-read_count = 0
-trim_count = 0
-removed_count = 0
-line_count = 0
-count_n = 0
+(read_count, trim_count, removed_count, line_count, count_n) = (0, 0, 0, 0, 0)
 count_n_total = list()
 count_a_total = list()
 count_c_total = list()
 count_g_total = list()
 count_t_total = list()
-seq = ''
-quality = ''
+(seq, quality) = ('', '')
 filtered_reads = list()
 
 #if no phred scale is given, detect it automaticly
@@ -514,6 +509,24 @@ for line in infile:
 		#Reset seq and quality for next read
 		seq = ''
 		quality = ''
+
+
+
+
+
+
+
+
+
+
+
+####close files####
+infile.close()
+outfile.close()
+logfile.close()
+
+
+
 
 print('Number of nucleotides in', args.filename, ':', 'A:', sum(count_a_total), 'C:', sum(count_c_total), 'G:', sum(count_g_total), 'T:', sum(count_t_total), 'N:', sum(count_n_total))
 print('Number of reads in', args.filename, ':', read_count)

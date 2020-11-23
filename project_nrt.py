@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, re, argparse
+import sys, argparse, gzip, re
 
 ####argument parser####
 def check_pos(value):
@@ -75,14 +75,14 @@ args = parser.parse_args()
 ####1. read file####
 
 #read input file if filetype is gzipped fastq 
-if args.filename.endswith('.fastq.gz'):
+if re.search(r'(\.fastq\.gz)\Z', args.filename):
     try:
         infile = gzip.open(args.filename,'rt')
     except IOError as error:
         sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 #read file if filetype is fastq
-elif args.filename.endswith('.fastq'):
+if re.search(r'(\.fastq)\Z', args.filename):
     try:
         infile = open(args.filename, 'r')
     except IOError as error:
@@ -92,34 +92,30 @@ else:
     print('Not a valid filename')
 
 #open output file and check if name if gzip
-if args.outfilename.endswith('.gz'):
+if re.search(r'(\.fastq\.gz)\Z', args.outfilename):
     try:
         outfile = gzip.open(args.outfilename, 'wt')
     except IOError as error:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
         sys.exit(1)
-elif args.filename.endswith('.fastq'):
+if re.search(r'(\.fastq)\Z', args.outfilename):
     try:
-        outfile = open(args.filename, 'r')
+        outfile = open(args.filename, 'w')
     except IOError as error:
         sys.stdout.write('Cannot open outputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 else:
-    try:
-        outfile = open(args.outfilename, 'w')
-    except IOError as error:
-        sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
-        sys.exit(1)   
+    print('Not a valid outputfilename')
 
 #read logfile input if given
-if args.logfile.endswith('.txt', 'w'):
+if re.search(r'(\.txt)\Z', args.logfile):
     try:
-        logfile = open(args.logfile, 'r')
+        logfile = open(args.logfile, 'w')
     except IOError as error:
         sys.stdout.write('Cannot open logfile, reason: ', + str(error) + '\n')
         sys.exit()
 #add text to logfile
-print('Original file: ', infile, '\n', 'Trimmed file: ', outfile, '\n', file = logfile)
+print('Original file: ', args.filename, '\n', 'Trimmed file: ', args.outfilename, '\n', file = logfile)
 
 
 
@@ -440,84 +436,91 @@ if args.phred_scale == None:
     infile.seek(0)
     
 #Initialize
-(read_count, trim_count, removed_count, line_count, count_n) = (0, 0, 0, 0, 0)
-(count_n, count_a, count_c, count_g, count_t, filtered_reads)= (0, 0, 0, 0, 0, [])
-(seq, quality, error_seq) = ('', '', '')
+(read_count, trim_count, removed_count, line_count) = (0, 0, 0, 0)
+(count_n, count_a, count_c, count_g, count_t, count_n_trim)= (0, 0, 0, 0, 0, 0)
+(seq, quality) = ('', '')
+error_seq = []
 
 #read one sequence at a time and sort lines
 for line in infile:
-	line = line.strip()
-	line_count += 1
+    line = line.strip()
+    line_count += 1
 	#Identify header, sequence and qualityity data for read
-	if line_count % 4 == 1:
-		header = line
-	elif line_count % 4 == 2:
-		seq = line
-	elif line_count % 4 == 0:
-		quality = line
-	#If sequence and qualityity data are both containing data - trimming functions are performed according to arguments from command line
-	if seq != '' and quality != '':
-		seq_quality = list(zip(seq, quality))
-		#Count number of nucleotides in input file
-		for nuc, asci in seq_quality:
-			count_n += nuc.count('N')
-			count_a += nuc.count('A')
-			count_c += nuc.count('C')
-			count_g += nuc.count('G')
-			count_t += nuc.count('T')
-		#Trim fixed number of nucleotides from 5' end
-		seq_quality_trim = trim_fixed(seq_quality, args.fixed_trim_val[0], args.fixed_trim_val[0])
-		#Trim based on qualityity of nucleotides from 5' end
-		if args.min_residue5:
-			seq_quality_trim = trim_single_nuc_5(seq_quality_trim, args.min_residue5)
-		elif args.mean_mw5:
-			seq_quality_trim = trim_moving_window_5(seq_quality_trim, args.mean_mw5)
-		#Trim based on qualityity of nucleotides from 3' end
-		if args.min_residue3:
-			seq_quality_trim = trim_single_nuc_3(seq_quality_trim, args.min_residue3)
-		elif args.mean_mw3:
-			seq_quality_trim = trim_moving_window_3(seq_quality_trim, args.mean_mw3)
+    if line_count % 4 == 1:
+        header = line
+    elif line_count % 4 == 2:
+        seq = line
+    elif line_count % 4 == 0:
+        quality = line
 
-		#Increase read count by 1
-		read_count += 1
+    else:
+        #If sequence and qualityity data are both containing data - trimming functions are performed according to arguments from command line
+        if seq != '' and quality != '':
+            #if length of seq and quality data is not the same, the read is not trimmed or saved to outfile
+            if len(seq) != len(quality):
+                error_seq.append(header)
+            seq_quality = list(zip(seq, quality))
+            #Count number of nucleotides in input file
+            for nuc, asci in seq_quality:
+                count_n += nuc.count('N')
+                count_a += nuc.count('A')
+                count_c += nuc.count('C')
+                count_g += nuc.count('G')
+                count_t += nuc.count('T')
+            #Trim fixed number of nucleotides from 5' end
+            seq_quality_trim = trim_fixed(seq_quality, args.fixed_trim_val[0], args.fixed_trim_val[0])
+            #Trim based on qualityity of nucleotides from 5' end
+            if args.min_residue5:
+                seq_quality_trim = trim_single_nuc_5(seq_quality_trim, args.min_residue5)
+            elif args.mean_mw5:
+                seq_quality_trim = trim_moving_window_5(seq_quality_trim, args.mean_mw5)
+            #Trim based on qualityity of nucleotides from 3' end
+            if args.min_residue3:
+                seq_quality_trim = trim_single_nuc_3(seq_quality_trim, args.min_residue3)
+            elif args.mean_mw3:
+                seq_quality_trim = trim_moving_window_3(seq_quality_trim, args.mean_mw3)
 
-		#Count number of trimmed reads
-		if len(seq_quality_trim) < len(seq_quality):
-			trim_count += 1
+            #Increase read count by 1
+            read_count += 1
+            #Count number of trimmed reads
+            if len(seq_quality_trim) < len(seq_quality):
+                trim_count += 1
 
-		#Filter reads based on users input
-		read_mean_quality = calc_mean_quality(seq_quality_trim)     #calculate mean quality after trimming 
-        for nuc, asci in seq_quality_trim:
-            count_n_trim.append(nuc.count('N'))
+            #Filter reads based on users input
+            read_mean_quality = calc_mean_quality(seq_quality_trim)     #calculate mean quality after trimming 
+            for nuc, asci in seq_quality_trim:
+                count_n_trim += nuc.count('N')
 
-		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_len or count_n_trim > 5:
-			removed_count += 1
-            #reset and break from loop with no saving of read to outfile
-			seq = ''
-			quality = ''
-			continue
+            if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_len or count_n_trim > 5:
+                removed_count += 1
+                #reset and break from loop with no saving of read to outfile
+                seq = ''
+                quality = ''
+                continue
 
-
-		#Print read to outfile
-		seq_quality_sep = list(zip(*seq_quality_trim))
-		print(header, file = outfile)
-		print(''.join(seq_quality_sep[0]), file = outfile)
-		print('+', file = outfile)
-		print(''.join(seq_quality_sep[1]), file = outfile)
-
-		#Reset seq and quality for next read
-		seq = ''
-		quality = ''
+            #Print read to outfile
+            seq_quality_sep = list(zip(*seq_quality_trim))
+            print(header, file = outfile)
+            print(''.join(seq_quality_sep[0]), file = outfile)
+            print('+', file = outfile)
+            print(''.join(seq_quality_sep[1]), file = outfile)
+            #Reset seq and quality for next read
+            seq = ''
+            quality = ''
 
 
 ####saving to log file
+print('Number of reads: ', read_count, file = logfile)
+print('Number of trimmed read: ', trim_count, file = logfile)
+print('Number of removed reads: ', removed_count, file = logfile)
+
 #calculate GC content
 GC = sum(count_g, count_c) / sum(count_a, count_t, count_g, count_c, count_n)
-
+#save nucleotide counts to logfile
 print('\nTotal nucleotide  counts\nA: ', count_a, '\nT: ', count_t, '\nG: ', count_g, '\nC: ', count_c, '\nGC content: ', GC, file = logfile)
 
 
-
+print('Reads with quality data length and read length not matching: ', error_seq, file = logfile)
 
 
 
@@ -530,8 +533,3 @@ logfile.close()
 
 
 
-
-print('Number of nucleotides in', args.filename, ':', 'A:', sum(count_a_total), 'C:', sum(count_c_total), 'G:', sum(count_g_total), 'T:', sum(count_t_total), 'N:', sum(count_n_total))
-print('Number of reads in', args.filename, ':', read_count)
-print('Number of trimmed reads in', args.filename, ':', trim_count)
-print('Number of removed reads in', args.filename, ':', removed_count)

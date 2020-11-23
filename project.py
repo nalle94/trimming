@@ -113,16 +113,18 @@ phred64 = {
 	'^': 30, '_': 31, '`': 32, 'a': 33, 'b': 34, 'c': 35, 'd': 36, 'e': 37, 'f': 38, 'g': 39, 
 	'h': 40, 'i': 41}
 
-
 def detect_phred(infile):
     '''detects phred score for sequences in file'''
+    #Set start
+    phred_scale = None 
+    qualityity_data = None
     line_count = 0
     #iterate over file until scale is identified
     while phred_scale == None:
         for line in infile:
             line = line.strip()
             line_count += 1    
-            #identify quality score lines (every 4th)
+            #identify qualityity score lines (every 4th)
             if line_count % 4 == 0:
                 for char in line:
                     #translate the line to find phred scales
@@ -134,10 +136,365 @@ def detect_phred(infile):
     if phred_scale == None:
         print("Cannot determine phred scale")
     return phred_scale    
-            
+                  
 
-####close files####
-infile.close()
-outfile.close()
-logfile.close()
+def trim_fixed(seq_quality, fixed_trim_val5, fixed_trim_val3):
+	'''Trim fixed number of nucleotides from 5' and 3' ends'''
+	count = 0
+	seq_trimmed_3 = ''
+	asci_trimmed_3 = ''
+	seq_trimmed_5 = ''
+	asci_trimmed_5 = ''
+	for nuc, asci in seq_quality:
+		if count < fixed_trim_val5:
+			count += 1
+		else:
+			seq_trimmed_5 += nuc
+			asci_trimmed_5 += asci
+	seq_quality_trimmed_5 = list(zip(seq_trimmed_5, asci_trimmed_5))
+	count = 0
+	for nuc, asci in seq_quality_trimmed_5[::-1]:
+		if count < fixed_trim_val3:
+			count += 1
+		else:
+			seq_trimmed_3 += nuc
+			asci_trimmed_3 += asci
+
+	seq_quality = list(zip(seq_trimmed_3[::-1], asci_trimmed_3[::-1]))
+	return seq_quality
+
+
+def trim_single_nuc_5(seq_quality, threshold):
+	'''Trim from 5' based on minimum qualityity of single nucleotides'''
+	seq_trimmed_5 = ''
+	asci_trimmed_5 = ''
+	for nuc,asci in seq_quality:
+		if phred_scale == 'phred+33':
+			if phred33[asci] < threshold and seq_trimmed_5 == '':
+				continue
+			else:
+				seq_trimmed_5 += nuc
+				asci_trimmed_5 += asci
+		elif phred_scale == 'phred+64':
+			if phred64[asci] < threshold and seq_trimmed_5 == '':
+				continue
+			else:
+				seq_trimmed_5 += nuc
+				asci_trimmed_5 += asci
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	seq_quality = list(zip(seq_trimmed_5, asci_trimmed_5))
+	return seq_quality
+
+
+def trim_single_nuc_3(seq_quality, threshold):
+	'''Trim from 3' based on minimum qualityity of single nucleotides'''
+	seq_trimmed_3 = ''
+	asci_trimmed_3 = ''
+	for nuc,asci in seq_quality[::-1]:
+		if phred_scale == 'phred+33':
+			if phred33[asci] < threshold and seq_trimmed_3 == '':
+				continue
+			else:
+				seq_trimmed_3 += nuc
+				asci_trimmed_3 += asci
+		elif phred_scale == 'phred+64':			
+			if phred64[asci] < threshold and seq_trimmed_3 == '':
+				continue
+			else:
+				seq_trimmed_3 += nuc
+				asci_trimmed_3 += asci	
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	seq_quality = list(zip(seq_trimmed_3[::-1], asci_trimmed_3[::-1]))
+	return seq_quality
+
+
+def trim_moving_window_5(seq_quality, threshold):
+	'''Trim from 5' based on average of moving window of size 5'''
+	seq_trimmed_5 = ''
+	asci_trimmed_5 = ''
+	window_size = 5
+	i = 0
+	while i < len(seq_quality) - window_size + 1:
+		sum_window = 0
+		window = seq_quality[i:i + window_size]
+		if phred_scale == 'phred+33':
+			for nuc,asci in window:
+				sum_window += phred33[asci]
+			window_average = sum_window/window_size
+			if window_average < threshold and seq_trimmed_5 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_5 += window[0][0]
+				asci_trimmed_5 += window[0][1]
+		elif phred_scale == 'phred+64':
+			for nuc,asci in window:
+				sum_window += phred64[asci]
+			window_average = sum_window/window_size
+			if window_average < threshold and seq_trimmed_5 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_5 += window[0][0]
+				asci_trimmed_5 += window[0][1]
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	#Add remaining 3' nucleotides to trimmed sequence
+	for nuc,asci in window[1:]:
+		seq_trimmed_5 += nuc
+		asci_trimmed_5 += asci
+
+	seq_quality = list(zip(seq_trimmed_5, asci_trimmed_5))
+	return seq_quality
+
+
+def trim_moving_window_3(seq_quality, threshold):
+	'''Trim from 3' based on average of moving window of size 5'''
+	seq_trimmed_3 = ''
+	asci_trimmed_3 = ''
+	window_size = 5
+	i = 0
+	seq_quality = seq_quality[::-1]
+	while i < len(seq_quality) - window_size + 1:
+		sum_window = 0
+		window = seq_quality[i:i + window_size]
+		if phred_scale == 'phred+33':
+			for nuc,asci in window:
+				sum_window += phred33[asci]
+			window_average = sum_window/window_size
+			if window_average < threshold and seq_trimmed_3 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_3 += window[0][0]
+				asci_trimmed_3 += window[0][1]
+		elif phred_scale == 'phred+64':
+			for nuc,asci in window:
+				sum_window += phred64[asci]
+			window_average = sum_window/window_size
+			if window_average < threshold and seq_trimmed_3 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_3 += window[0][0]
+				asci_trimmed_3 += window[0][1]
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	#Add remaining 5' nucleotides to trimmed sequence
+	for nuc,asci in window[1:]:
+		seq_trimmed_3 += nuc
+		asci_trimmed_3 += asci
+
+	seq_quality = list(zip(seq_trimmed_3[::-1], asci_trimmed_3[::-1]))
+	return seq_quality
+
+
+def trim_min_moving_window_5(seq_quality, threshold):
+	'''Trim from 5' based on minimum of moving window of size 5'''
+	seq_trimmed_5 = ''
+	asci_trimmed_5 = ''
+	window_size = 5
+	i = 0
+	while i < len(seq_quality) - window_size + 1:
+		quality_window = list()
+		window = seq_quality[i:i + window_size]
+		if phred_scale == 'phred+33':
+			for nuc,asci in window:
+				quality_window.append(phred33[asci])
+			if min(quality_window) < threshold and seq_trimmed_5 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_5 += window[0][0]
+				asci_trimmed_5 += window[0][1]
+		elif phred_scale == 'phred+64':
+			for nuc,asci in window:
+				quality_window.append(phred33[asci])
+			if min(quality_window) < threshold and seq_trimmed_5 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_5 += window[0][0]
+				asci_trimmed_5 += window[0][1]
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	#Add remaining 3' nucleotides to trimmed sequence
+	for nuc,asci in window[1:]:
+		seq_trimmed_5 += nuc
+		asci_trimmed_5 += asci
+
+	seq_quality = list(zip(seq_trimmed_5, asci_trimmed_5))
+	return seq_quality
+
+
+def trim_min_moving_window_3(seq_quality, threshold):
+	'''Trim from 3' based on minimum of moving window of size 5'''
+	seq_trimmed_3 = ''
+	asci_trimmed_3 = ''
+	window_size = 5
+	i = 0
+	seq_quality = seq_quality[::-1]
+	while i < len(seq_quality) - window_size + 1:
+		quality_window = list()
+		window = seq_quality[i:i + window_size]
+		if phred_scale == 'phred+33':
+			for nuc,asci in window:
+				quality_window.append(phred33[asci])
+			if min(quality_window) < threshold and seq_trimmed_3 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_3 += window[0][0]
+				asci_trimmed_3 += window[0][1]
+		elif phred_scale == 'phred+64':
+			for nuc,asci in window:
+				quality_window.append(phred33[asci])
+			if min(quality_window) < threshold and seq_trimmed_3 == '':
+				i += 1
+				continue
+			else:
+				i += 1
+				seq_trimmed_3 += window[0][0]
+				asci_trimmed_3 += window[0][1]
+		else:
+			raise ValueError('Phred scale not correctly identified', phred_scale)
+			sys.exit(1)
+
+	#Add remaining 5' nucleotides to trimmed sequence
+	for nuc,asci in window[1:]:
+		seq_trimmed_3 += nuc
+		asci_trimmed_3 += asci
+
+	seq_quality = list(zip(seq_trimmed_3, asci_trimmed_3))
+	return seq_quality
+
+
+def calc_mean_quality(seq_quality):
+	'''Calculate mean qualityity of read'''
+	sum_quality_read = 0
+	if phred_scale == 'phred+33':
+		for nuc, asci in seq_quality:
+			sum_quality_read += phred33[asci]
+		average_read_quality = sum_quality_read/len(seq_quality)
+	elif phred_scale == 'phred+64':
+		for nuc,asci in seq_quality:
+			sum_quality_read += phred64[asci]
+		average_read_quality = sum_quality_read/len(seq_quality)
+	else:
+		raise ValueError('Phred scale not correctly identified', phred_scale)
+		sys.exit(1)
+
+	return int(average_read_quality)
+	
+
+#MAIN PROGRAM
+
+#Initialize
+(read_count, trim_count, removed_count, line_count, count_n) = (0, 0, 0, 0, 0)
+count_n_total = list()
+count_a_total = list()
+count_c_total = list()
+count_g_total = list()
+count_t_total = list()
+(seq, quality) = ('', '')
+filtered_reads = list()
+
+#if no phred scale is given, detect it automaticly
+if args.phred_scale == None:
+    phred_scale = detect_phred(infile)
+
+#read one sequence at a time and sort lines
+infile.seek(0)
+for line in infile:
+	line = line.strip()
+	line_count += 1
+	#Identify header, sequence and qualityity data for read
+	if line_count % 4 == 1:
+		header = line
+	elif line_count % 4 == 2:
+		seq = line
+	elif line_count % 4 == 0:
+		quality = line
+	#If sequence and qualityity data are both containing data - trimming functions are performed according to arguments from command line
+	if seq != '' and quality != '':
+		seq_quality = list(zip(seq, quality))
+		#Count number of nucleotides in input file
+		for nuc, asci in seq_quality:
+			count_n_total.append(nuc.count('N'))
+			count_a_total.append(nuc.count('A'))
+			count_c_total.append(nuc.count('C'))
+			count_g_total.append(nuc.count('G'))
+			count_t_total.append(nuc.count('T'))
+		#Trim fixed number of nucleotides from 5' end
+		seq_quality_trim = trim_fixed(seq_quality, args.fixed_trim_val[0], args.fixed_trim_val[0])
+		#Trim based on qualityity of nucleotides from 5' end
+		if args.min_residue5:
+			seq_quality_trim = trim_single_nuc_5(seq_quality_trim, args.min_residue5)
+		elif args.mean_mw5:
+			seq_quality_trim = trim_moving_window_5(seq_quality_trim, args.mean_mw5)
+		#Trim based on qualityity of nucleotides from 3' end
+		if args.min_residue3:
+			seq_quality_trim = trim_single_nuc_3(seq_quality_trim, args.min_residue3)
+		elif args.mean_mw3:
+			seq_quality_trim = trim_moving_window_3(seq_quality_trim, args.mean_mw3)
+
+		#Increase read count by 1
+		read_count += 1
+
+		#Count number of trimmed reads
+		if len(seq_quality_trim) < len(seq_quality):
+			trim_count += 1
+
+		#Filter reads based on mean qualityity of read after trimming
+		read_mean_quality = calc_mean_quality(seq_quality_trim)
+		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_qual:
+			removed_count += 1
+			seq = ''
+			quality = ''
+			continue
+    
+        #Filter reads based on number of unknown nucleotides after trimming
+		for nuc, asci in seq_quality_trim:
+			count_n += nuc.count('N')
+ 		if count_n > 5:
+			removed_count += 1
+			seq = ''
+			quality = ''
+			continue
+
+		#Print read to outfile
+		seq_quality_sep = list(zip(*seq_quality_trim))
+		print(header, file = outfile)
+		print(''.join(seq_quality_sep[0]), file = outfile)
+		print('+', file = outfile)
+		print(''.join(seq_quality_sep[1]), file = outfile)
+
+		#Reset seq and quality for next read
+		seq = ''
+		quality = ''
+
+print('Number of nucleotides in', args.filename, ':', 'A:', sum(count_a_total), 'C:', sum(count_c_total), 'G:', sum(count_g_total), 'T:', sum(count_t_total), 'N:', sum(count_n_total))
+print('Number of reads in', args.filename, ':', read_count)
+print('Number of trimmed reads in', args.filename, ':', trim_count)
+print('Number of removed reads in', args.filename, ':', removed_count)
+
 

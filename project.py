@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
-import sys, re, gzip, argparse
 
+import sys, re, argparse
 
 ####argument parser####
 def check_pos(value):
@@ -14,7 +14,21 @@ def check_pos(value):
         sys.exit()
     return int_value
 
-
+def check_quality_cut(value):
+    '''check if value is pos int or return defaultvalue if yes'''
+    if value == 'yes':
+        value = 0
+    else:
+        try:
+            int_value = int(value)
+            if int_value < 0:
+                raise argparse.ArgumentError("%s is not a positive int value" % value)
+        except argparse.ArgumentError as error:
+            print("%s is not a positive int value" % value)
+            sys.exit()
+    return int_value
+    
+#read argument line    
 parser = argparse.ArgumentParser(description = 'Trimming of fastq file.')
 parser.add_argument('-f', dest = 'filename', required = True, 
                     help = 'input fastq filename for trimming')
@@ -22,6 +36,8 @@ parser.add_argument('-o', dest = 'outfilename', required = True,
                     help = 'output filename. If gzip file is wanted, add .gz in end of filename')
 parser.add_argument('-p', dest = 'phred_scale', choices = ['phred+33', 'phred+64'], default = None,
                     help = 'phred scale (type: phred+33 or phred+64)') 
+parser.add_argument('-l', dest = 'logfile', default = 'logfile.txt',
+                    help = 'log filename. Need to be a txt file (default: logfile.txt)')
                     
 #add grouped argument for trimming settings
 trim = parser.add_argument_group('Trimming', description = 'Settings for trimming. Besides fixed_trim, only one trimming option can be performed from each end. If no options are entered, no trimming will be performed')
@@ -48,26 +64,25 @@ trim3.add_argument('-w5', dest = 'min_mw5', type = check_pos, default = False,
 filtering = parser.add_argument_group('Filtering', description = 'Settings for filtering (default: min_mean_qual = 30, min_read_len = 50, max_N = 5)')
 filtering.add_argument('-q', dest = 'min_mean_qual', type = check_pos, default = 30,
                     help = 'minimum mean quality after trimming (default = 30)')
-filtering.add_argument('-r', dest = 'min_read_qual', type = check_pos, default = 50,
+filtering.add_argument('-r', dest = 'min_read_len', type = check_pos, default = 50,
                     help = 'minimum read length after trimming (default = 50)')
 filtering.add_argument('-s', dest = 'max_N', type = check_pos, default = 5,
                     help = 'maximum unknown N after trimming (default = 5)')
-
-#save arguments in 
 args = parser.parse_args()
+
 
 
 ####1. read file####
 
 #read input file if filetype is gzipped fastq 
-if args.filename.endswith('fastq.gz'):
+if args.filename.endswith('.fastq.gz'):
     try:
         infile = gzip.open(args.filename,'rt')
     except IOError as error:
         sys.stdout.write('Cannot open inputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 #read file if filetype is fastq
-elif args.filename.endswith('fastq'):
+elif args.filename.endswith('.fastq'):
     try:
         infile = open(args.filename, 'r')
     except IOError as error:
@@ -77,11 +92,17 @@ else:
     print('Not a valid filename')
 
 #open output file and check if name if gzip
-if args.outfilename.endswith('gz'):
+if args.outfilename.endswith('.gz'):
     try:
         outfile = gzip.open(args.outfilename, 'wt')
     except IOError as error:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
+elif args.filename.endswith('.fastq'):
+    try:
+        outfile = open(args.filename, 'r')
+    except IOError as error:
+        sys.stdout.write('Cannot open outputfile, reason: ' + str(error) + '\n')
         sys.exit(1)
 else:
     try:
@@ -90,16 +111,19 @@ else:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
         sys.exit(1)   
 
-#open log file
-logfile = open('log.txt', 'w')
+#read logfile input if given
+if args.logfile.endswith('.txt', 'w')
+    try:
+        logfile = open(args.logfile, 'r')
+    except IOError as error:
+        sys.stdout.write('Cannot open logfile, reason: ', + str(error) + '\n')
+        sys.exit()
+#add text to logfile
+print('Original file: ', infile, '\n', 'Trimmed file: ', outfile, '\n')
+
 
 
 #### 2. Detect Phred score ####
-infile=open("sequence_example.txt","rt")
-outfile = gzip.open("sequence_example.txt.gzip","wt")
-
-
-
 phred33 = {
 	'!': 0, '"': 1, '#': 2, '$': 3, '%': 4, '&': 5, "'": 6, '(': 7, ')': 8, '*': 9, 
 	'+': 10, ',': 11, '-': 12, '.': 13, '/': 14, '0': 15, '1': 16, '2': 17, '3': 18, '4': 19,
@@ -406,24 +430,20 @@ def calc_mean_quality(seq_quality):
 	return int(average_read_quality)
 	
 
-#MAIN PROGRAM
+####MAIN PROGRAM####
 
 #Initialize
 (read_count, trim_count, removed_count, line_count, count_n) = (0, 0, 0, 0, 0)
-count_n_total = list()
-count_a_total = list()
-count_c_total = list()
-count_g_total = list()
-count_t_total = list()
+(count_n, count_a, count_c, count_g, count_t, filtered_reads)= ([], [], [], [], [], [])
 (seq, quality) = ('', '')
-filtered_reads = list()
 
 #if no phred scale is given, detect it automaticly
 if args.phred_scale == None:
     phred_scale = detect_phred(infile)
+    #go back to beginning of file
+    infile.seek(0)
 
 #read one sequence at a time and sort lines
-infile.seek(0)
 for line in infile:
 	line = line.strip()
 	line_count += 1
@@ -439,11 +459,11 @@ for line in infile:
 		seq_quality = list(zip(seq, quality))
 		#Count number of nucleotides in input file
 		for nuc, asci in seq_quality:
-			count_n_total.append(nuc.count('N'))
-			count_a_total.append(nuc.count('A'))
-			count_c_total.append(nuc.count('C'))
-			count_g_total.append(nuc.count('G'))
-			count_t_total.append(nuc.count('T'))
+			count_n.append(nuc.count('N'))
+			count_a.append(nuc.count('A'))
+			count_c.append(nuc.count('C'))
+			count_g.append(nuc.count('G'))
+			count_t.append(nuc.count('T'))
 		#Trim fixed number of nucleotides from 5' end
 		seq_quality_trim = trim_fixed(seq_quality, args.fixed_trim_val[0], args.fixed_trim_val[0])
 		#Trim based on qualityity of nucleotides from 5' end
@@ -464,22 +484,17 @@ for line in infile:
 		if len(seq_quality_trim) < len(seq_quality):
 			trim_count += 1
 
-		#Filter reads based on mean qualityity of read after trimming
-		read_mean_quality = calc_mean_quality(seq_quality_trim)
-		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_qual:
+		#Filter reads based on users input
+		read_mean_quality = calc_mean_quality(seq_quality_trim)     #calculate mean quality after trimming    
+        for nuc, asci in seq_quality_trim:      #count N after trimming
+			count_n_trim.append(nuc.count('N'))
+		if read_mean_quality < args.min_mean_qual or len(seq_quality_trim) < args.min_read_len or if count_n_trim > 5:
 			removed_count += 1
+            #reset and break from loop with no saving of read to outfile
 			seq = ''
 			quality = ''
 			continue
-    
-        #Filter reads based on number of unknown nucleotides after trimming
-		for nuc, asci in seq_quality_trim:
-			count_n += nuc.count('N')
- 		if count_n > 5:
-			removed_count += 1
-			seq = ''
-			quality = ''
-			continue
+
 
 		#Print read to outfile
 		seq_quality_sep = list(zip(*seq_quality_trim))
@@ -492,9 +507,26 @@ for line in infile:
 		seq = ''
 		quality = ''
 
+
+#saving to log file
+
+
+
+
+
+
+
+
+
+####close files####
+infile.close()
+outfile.close()
+logfile.close()
+
+
+
+
 print('Number of nucleotides in', args.filename, ':', 'A:', sum(count_a_total), 'C:', sum(count_c_total), 'G:', sum(count_g_total), 'T:', sum(count_t_total), 'N:', sum(count_n_total))
 print('Number of reads in', args.filename, ':', read_count)
 print('Number of trimmed reads in', args.filename, ':', trim_count)
 print('Number of removed reads in', args.filename, ':', removed_count)
-
-

@@ -98,6 +98,12 @@ if args.outfilename.endswith('.gz'):
     except IOError as error:
         sys.stdout.write('Cannot open outfile, reason: ' + str(error) + '\n')
         sys.exit(1)
+elif args.filename.endswith('.fastq'):
+    try:
+        outfile = open(args.filename, 'r')
+    except IOError as error:
+        sys.stdout.write('Cannot open outputfile, reason: ' + str(error) + '\n')
+        sys.exit(1)
 else:
     try:
         outfile = open(args.outfilename, 'w')
@@ -113,7 +119,7 @@ if args.logfile.endswith('.txt', 'w')
         sys.stdout.write('Cannot open logfile, reason: ', + str(error) + '\n')
         sys.exit()
 #add text to logfile
-print('
+print('Original file: ', infile, '\n', 'Trimmed file: ', outfile, '\n')
 
 
 
